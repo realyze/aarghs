@@ -17,17 +17,18 @@ required = (args, checkFun, errorFun) -> (fun) -> ->
   if not _.isArray(args)
     args = [args]
 
-  _.each args, (arg) ->
-    checkFun ?= (i) ->
-      if ~arg.indexOf('.')
-        # We're searching in an object => use '?' (`null`s are invalid too).
-        return i?
-      else
-        # A non-object, `null`s are valid, only check for `undefined`s.
-        return not _.isUndefined(i)
+  checkFun ?= (arg, i) ->
+    if ~arg.indexOf('.')
+      # We're searching in an object => use '?' (`null`s are invalid too).
+      return i?
+    else
+      # A non-object, `null`s are valid, only check for `undefined`s.
+      return not _.isUndefined(i)
 
-    errorFun ?= (arg) -> throw new Error("invalid parameter: #{arg}")
+  errorFun ?= (arg) ->
+    throw new Error("invalid parameter: #{arg}")
 
+  checkArg = (arg, origParams) ->
     # Parse the function signature to get params.
     params = fun.toString()
       .split('\n')[0]
@@ -41,22 +42,18 @@ required = (args, checkFun, errorFun) -> (fun) -> ->
     if not ~index
       return errorFun arg
 
-    val = arguments[index]
+    val = origParams[index]
     # Treat `foo.bar.baz`-ish args specially (search for the value recursively).
     val = deep(val, arg) if _.isObject(val)
 
-    if not checkFun val
+    if not checkFun arg, val
       return errorFun arg
+  
+  params = arguments
+  _.each args, (arg) -> checkArg(arg, params)
 
   # Call the original fun.
   fun.apply @, arguments
 
 
 exports.required = required
-
-# example
-# =======
-# bar = required('arg3', null, ((i) -> console.log 'aargh', i)) (arg1, arg2) ->
-#   console.log('arg1', arg1, 'arg2', arg2)
-#
-# bar({arg1: foo: 42}, null)
