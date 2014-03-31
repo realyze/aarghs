@@ -13,40 +13,46 @@ deep = (obj, path) ->
   _.reduce path.split('.'), ((memo, part) -> memo[part]), obj
 
 
-required = (arg, checkFun, errorFun) -> (fun) -> ->
-  checkFun ?= (i) ->
-    if ~arg.indexOf('.')
-      # We're searching in an object => use '?' (`null`s are invalid too).
-      return i?
-    else
-      # A non-object, `null`s are valid, only check for `undefined`s.
-      return not _.isUndefined(i)
+required = (args, checkFun, errorFun) -> (fun) -> ->
+  if not _.isArray(args)
+    args = [args]
 
-  errorFun ?= (arg) -> throw new Error("invalid parameter: #{arg}")
+  _.each args, (arg) ->
+    checkFun ?= (i) ->
+      if ~arg.indexOf('.')
+        # We're searching in an object => use '?' (`null`s are invalid too).
+        return i?
+      else
+        # A non-object, `null`s are valid, only check for `undefined`s.
+        return not _.isUndefined(i)
 
-  # Parse the function signature to get params.
-  params = fun.toString()
-    .split('\n')[0]
-    .replace(/[^\(]+\(([^{]+)\).*/, '$1')
-    .replace(' ', '')
-    .split(',')
-  toMatch = arg.split('.')[0]
+    errorFun ?= (arg) -> throw new Error("invalid parameter: #{arg}")
 
-  # Is `arg` in the params?
-  index = params.indexOf(toMatch)
-  if not ~index
-    return errorFun arg
+    # Parse the function signature to get params.
+    params = fun.toString()
+      .split('\n')[0]
+      .replace(/[^\(]+\(([^{]+)\).*/, '$1')
+      .replace(' ', '')
+      .split(',')
+    toMatch = arg.split('.')[0]
 
-  val = arguments[index]
-  # Treat `foo.bar.baz`-ish args specially (search for the value recursively).
-  val = deep(val, arg) if _.isObject(val)
+    # Is `arg` in the params?
+    index = params.indexOf(toMatch)
+    if not ~index
+      return errorFun arg
 
-  if not checkFun val
-    return errorFun arg
+    val = arguments[index]
+    # Treat `foo.bar.baz`-ish args specially (search for the value recursively).
+    val = deep(val, arg) if _.isObject(val)
+
+    if not checkFun val
+      return errorFun arg
 
   # Call the original fun.
   fun.apply @, arguments
 
+
+exports.required = required
 
 # example
 # =======
